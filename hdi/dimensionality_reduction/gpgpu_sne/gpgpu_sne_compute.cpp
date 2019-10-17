@@ -5,6 +5,8 @@
 
 #include <vector>
 #include <limits>
+#include <iomanip>
+#include <fstream>
 #include <iostream>
 
 namespace hdi {
@@ -79,7 +81,7 @@ namespace hdi {
 
     void GpgpuSneCompute::initialize(const embedding_type* embedding, TsneParameters params, const sparse_scalar_matrix_type& P) {
       _params = params;
-
+      std::cout << "GPGPU initialize()" << std::endl;
       unsigned int num_points = embedding->numDataPoints();
 
       // Linearize sparse probability matrix
@@ -95,12 +97,16 @@ namespace hdi {
         }
         linear_P.indices.push_back(size);
       }
-
+      std::cout << "Linearized spm" << std::endl;
+      std::cout << "Num Indices: " << linear_P.indices.size() << std::endl;
+      std::cout << "Num Neighbours: " << linear_P.neighbours.size() << std::endl;
+      std::cout << "Num Probabilities: " << linear_P.probabilities.size() << std::endl;
+      std::cout << "P.size() " << P.size() << std::endl;
       // Compute initial data bounds
       _bounds = computeEmbeddingBounds(embedding);
 
       _function_support = 6.5f;
-
+      std::cout << "GPGPU initialize()2" << std::endl;
       // Initialize all OpenGL resources
       initializeOpenGL(num_points, linear_P);
 
@@ -115,7 +121,28 @@ namespace hdi {
     }
 
     void GpgpuSneCompute::initializeOpenGL(const unsigned int num_points, const LinearProbabilityMatrix& linear_P) {
+      std::cout << "Initializing GPGPU OpenGL" << std::endl;
       glClearColor(0, 0, 0, 0);
+
+      std::cout << "Starting to write Linear_P to file" << std::endl;
+      std::ofstream myfile("linear_p_output.txt");
+      myfile << "Indices" << std::endl;
+      for (int i = 0; i < linear_P.indices.size(); i++)
+      {
+        myfile << linear_P.indices[i] << std::endl;
+      }
+      myfile << "Neighbours" << std::endl;
+      for (int i = 0; i < linear_P.neighbours.size(); i++)
+      {
+        myfile << linear_P.neighbours[i] << std::endl;
+      }
+      myfile << "Probabilities" << std::endl;
+      for (int i = 0; i < linear_P.probabilities.size(); i++)
+      {
+        myfile << linear_P.probabilities[i] << std::endl;
+      }
+      myfile.close();
+      std::cout << "Finished to write Linear_P to file" << std::endl;
 
       fieldComputation.init(num_points);
 
@@ -187,6 +214,7 @@ namespace hdi {
       glBufferData(GL_SHADER_STORAGE_BUFFER, 2 * sizeof(Point2D), ones.data(), GL_STREAM_READ);
 
       glGenQueries(2, _timerQuery);
+      std::cout << "Initialized GPGPU OpenGL" << std::endl;
     }
 
     void GpgpuSneCompute::startTimer()
@@ -216,11 +244,20 @@ namespace hdi {
     }
 
     void GpgpuSneCompute::compute(embedding_type* embedding, float exaggeration, float iteration, float mult) {
+      //std::cout << "Starting GPGPU compute()" << std::endl;
       float* points = embedding->getContainer().data();
       unsigned int num_points = embedding->numDataPoints();
 
       if (iteration < 0.5)
       {
+        std::cout << "Starting to write points to file" << std::endl;
+        std::ofstream myfile("point_output.txt");
+        for (int i = 0; i < num_points * 2; i += 2)
+        {
+          myfile << std::fixed << std::setprecision(8) << points[i] << ", " << std::fixed << std::setprecision(8) << points[i+1] << std::endl;
+        }
+        myfile.close();
+        std::cout << "Finished to write points to file" << std::endl;
         glBindBuffer(GL_SHADER_STORAGE_BUFFER, _compute_buffers[POSITION]);
         glBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, num_points * sizeof(Point2D), points);
       }

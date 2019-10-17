@@ -40,6 +40,7 @@
 #include "hdi/utils/scoped_timers.h"
 #include "sptree.h"
 #include <random>
+#include <fstream>
 
 #ifdef __APPLE__
 #include <dispatch/dispatch.h>
@@ -109,8 +110,23 @@ namespace hdi {
         _embedding = embedding;
         _embedding_container = &(embedding->getContainer());
         _embedding->resize(_params._embedding_dimensionality, size);
+        std::cout << "Re-initializing _P, it is currently this big: " << _P.size() << " and we wanna resize it to: " << size << std::endl;
         _P.clear();
         _P.resize(size);
+      }
+
+      {
+        std::cout << "Starting to write pre-probabilities to file" << std::endl;
+        std::ofstream myfile("prob_output.txt");
+        for (int i = 0; i < probabilities.size(); i++)
+        {
+          for (const auto& pij : probabilities[i])
+          {
+            myfile << pij.first << std::endl;
+          }
+        }
+        myfile.close();
+        std::cout << "Finished to write pre-probabilities to file" << std::endl;
       }
 
       utils::secureLogValue(_logger, "Number of data points", _P.size());
@@ -190,6 +206,20 @@ namespace hdi {
           _P[elem.first][j] = static_cast<scalar_type>((v0 + v1)*0.5);
         }
       }
+      {
+        std::cout << "Starting to write _P to file" << std::endl;
+        std::ofstream myfile("P_output.txt");
+        for (int i = 0; i < _P.size(); i++)
+        {
+          for (const auto& pij : _P[i])
+          {
+            myfile << pij.first << std::endl;
+          }
+        }
+        myfile.close();
+        std::cout << "Finished to write _P to file" << std::endl;
+      }
+
     }
 
 
